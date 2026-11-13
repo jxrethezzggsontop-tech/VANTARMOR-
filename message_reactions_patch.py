@@ -32,7 +32,6 @@ async def random_anime_gif(action):
         )
         with urllib.request.urlopen(request, timeout=5) as response:
             data = json.loads(response.read(256 * 1024).decode("utf-8"))
-        # nekos.best returns {results: [{url: ...}]}; waifu.pics returns {url: ...}.
         results = data.get("results", [])
         url = results[0].get("url") if results else data.get("url")
         return url if isinstance(url, str) and url.startswith("https://") else None
@@ -83,9 +82,13 @@ class ReactionChoiceView(discord.ui.View):
         return True
 
     async def finish(self, interaction, outcome):
+        if self.finished:
+            await interaction.response.send_message("Esta interacción ya terminó.", ephemeral=True)
+            return
         self.finished = True
         for item in self.children:
             item.disabled = True
+
         if self.action == "kiss" and outcome == "match":
             text = f"💋 {self.recipient.mention} ha devuelto el beso a {self.initiator.mention}."
             image_action = "kiss"
@@ -104,13 +107,21 @@ class ReactionChoiceView(discord.ui.View):
         else:
             text = f"👻 {self.recipient.mention}, que fue asesinado por {self.initiator.mention}, ha vuelto como fantasma para asustar a {self.initiator.mention}."
             image_action = "scare"
+
         embed = discord.Embed(color=discord.Color.blurple())
         if image_action:
             embed.set_image(url=await random_anime_gif(image_action))
-        await interaction.response.edit_message(
+
+        # Acknowledge the click, disable the old buttons, and post the outcome
+        # as a separate public message rather than editing the original message.
+        await interaction.response.defer()
+        try:
+            await interaction.message.edit(view=self)
+        except (discord.Forbidden, discord.HTTPException):
+            pass
+        await interaction.followup.send(
             content=text,
             embed=embed,
-            view=self,
             allowed_mentions=discord.AllowedMentions(users=True, roles=False, everyone=False),
         )
 
