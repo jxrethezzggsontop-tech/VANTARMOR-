@@ -5,36 +5,37 @@ REACTION_HELPERS = r'''# VANTARMOR_MESSAGE_REACTIONS_V2
 import json
 import urllib.request
 
-# Each endpoint returns a fresh anime reaction. Try providers in order so an
-# unavailable category/API does not break the command. The kill animation is
-# kept fictional and non-graphic.
+# Prefer a matching anime-reaction category, then try a broadly available
+# SFW anime reaction so an absent niche endpoint never leaves the embed blank.
 REACTION_GIF_ENDPOINTS = {
-    "kiss": ("https://nekos.best/api/v2/kiss",),
-    "slap": ("https://nekos.best/api/v2/slap",),
-    "spank": ("https://nekos.best/api/v2/spank",),
-    "kill": ("https://api.waifu.pics/sfw/kill",),
-    "revenge": ("https://nekos.best/api/v2/fight", "https://api.waifu.pics/sfw/kill"),
-    "scare": ("https://api.waifu.pics/sfw/scary", "https://nekos.best/api/v2/scare"),
+    "kiss": ("https://nekos.best/api/v2/kiss", "https://api.waifu.pics/sfw/kiss"),
+    "slap": ("https://nekos.best/api/v2/slap", "https://api.waifu.pics/sfw/slap"),
+    "spank": ("https://nekos.best/api/v2/spank", "https://api.waifu.pics/sfw/spank", "https://api.waifu.pics/sfw/slap"),
+    "kill": ("https://api.waifu.pics/sfw/kill", "https://nekos.best/api/v2/kill", "https://nekos.best/api/v2/fight", "https://api.waifu.pics/sfw/slap"),
+    "revenge": ("https://nekos.best/api/v2/fight", "https://api.waifu.pics/sfw/kill", "https://api.waifu.pics/sfw/slap"),
+    "scare": ("https://api.waifu.pics/sfw/scary", "https://nekos.best/api/v2/scare", "https://nekos.best/api/v2/ghost"),
 }
 REACTION_GIF_FALLBACKS = {
     "kiss": ("https://media.tenor.com/-I2QfQvG8fEAAAAC/anime-kiss.gif", "https://media.giphy.com/media/10UVJ0IXjUbPug/giphy.gif"),
     "slap": ("https://media.tenor.com/v1a5sM-9VnoAAAAC/anime-slap.gif", "https://media.giphy.com/media/3XlEk2RxPS1m8/giphy.gif"),
-    "spank": ("https://media.tenor.com/v1a5sM-9VnoAAAAC/anime-slap.gif",),
-    "kill": (),
-    "revenge": ("https://media.tenor.com/v1a5sM-9VnoAAAAC/anime-slap.gif",),
-    "scare": ("https://media.tenor.com/v1a5sM-9VnoAAAAC/anime-slap.gif",),
+    # Spank endpoints are inconsistent; keep an anime slap GIF as a visible fallback.
+    "spank": ("https://media.giphy.com/media/3XlEk2RxPS1m8/giphy.gif", "https://media.tenor.com/v1a5sM-9VnoAAAAC/anime-slap.gif"),
+    # Fictional anime action fallback; no realistic or graphic imagery.
+    "kill": ("https://media.giphy.com/media/3XlEk2RxPS1m8/giphy.gif", "https://media.tenor.com/v1a5sM-9VnoAAAAC/anime-slap.gif"),
+    "revenge": ("https://media.giphy.com/media/3XlEk2RxPS1m8/giphy.gif",),
+    "scare": ("https://media.giphy.com/media/3XlEk2RxPS1m8/giphy.gif",),
 }
 
 
 async def random_anime_gif(action):
     def fetch():
-        for endpoint in REACTION_GIF_ENDPOINTS[action]:
+        for endpoint in REACTION_GIF_ENDPOINTS.get(action, ()):
             try:
                 request = urllib.request.Request(
                     endpoint,
                     headers={"User-Agent": "Vantarmor-Commands/1.0", "Accept": "application/json"},
                 )
-                with urllib.request.urlopen(request, timeout=5) as response:
+                with urllib.request.urlopen(request, timeout=4) as response:
                     data = json.loads(response.read(256 * 1024).decode("utf-8"))
                 results = data.get("results", [])
                 url = results[0].get("url") if results else data.get("url")
@@ -50,7 +51,7 @@ async def random_anime_gif(action):
         url = None
     if url:
         return url
-    fallbacks = REACTION_GIF_FALLBACKS[action]
+    fallbacks = REACTION_GIF_FALLBACKS.get(action, ())
     return random.choice(fallbacks) if fallbacks else None
 
 
@@ -114,10 +115,10 @@ class ReactionChoiceView(discord.ui.View):
             text = f"🙎 {self.recipient.mention} le ha devuelto el spank a {self.initiator.mention}."
             image_action = "spank"
         elif outcome == "revenge":
-            text = f"💀 {self.recipient.mention}, que fue asesinado en la escena ficticia por {self.initiator.mention}, ha vuelto para vengarse."
+            text = f"💀 {self.recipient.mention}, derrotado en la escena ficticia por {self.initiator.mention}, ha vuelto para vengarse."
             image_action = "revenge"
         else:
-            text = f"👻 {self.recipient.mention}, que fue derrotado en la escena ficticia por {self.initiator.mention}, ha vuelto como fantasma para asustar a {self.initiator.mention}."
+            text = f"👻 {self.recipient.mention}, derrotado en la escena ficticia por {self.initiator.mention}, ha vuelto como fantasma para asustar a {self.initiator.mention}."
             image_action = "scare"
 
         embed = discord.Embed(color=discord.Color.blurple())
@@ -127,7 +128,7 @@ class ReactionChoiceView(discord.ui.View):
                 embed.set_image(url=image)
 
         # Keep the original action message; disable its buttons and post the
-        # response as a separate public message.
+        # outcome as a separate public message.
         await interaction.response.defer()
         try:
             await interaction.message.edit(view=self)
