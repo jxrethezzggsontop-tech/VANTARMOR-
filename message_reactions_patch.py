@@ -5,23 +5,36 @@ REACTION_HELPERS = r'''# VANTARMOR_MESSAGE_REACTIONS_V2
 import json
 import urllib.request
 
-# Prefer a matching anime-reaction category, then try a broadly available
-# SFW anime reaction so an absent niche endpoint never leaves the embed blank.
+# Public SFW anime reaction endpoints. Niche categories are tried first; the
+# widely available anime slap/fight categories are fallbacks for API coverage.
 REACTION_GIF_ENDPOINTS = {
     "kiss": ("https://nekos.best/api/v2/kiss", "https://api.waifu.pics/sfw/kiss"),
     "slap": ("https://nekos.best/api/v2/slap", "https://api.waifu.pics/sfw/slap"),
-    "spank": ("https://nekos.best/api/v2/spank", "https://api.waifu.pics/sfw/spank", "https://api.waifu.pics/sfw/slap"),
-    "kill": ("https://api.waifu.pics/sfw/kill", "https://nekos.best/api/v2/kill", "https://nekos.best/api/v2/fight", "https://api.waifu.pics/sfw/slap"),
-    "revenge": ("https://nekos.best/api/v2/fight", "https://api.waifu.pics/sfw/kill", "https://api.waifu.pics/sfw/slap"),
+    "spank": (
+        "https://nekos.best/api/v2/spank",
+        "https://api.waifu.pics/sfw/spank",
+        "https://nekos.best/api/v2/smack",
+        "https://api.waifu.pics/sfw/slap",
+        "https://nekos.best/api/v2/slap",
+    ),
+    # Anime fight/action reactions; avoid graphic gore. Waifu.pics kill is a
+    # last option only if the fight/punch categories are unavailable.
+    "kill": (
+        "https://nekos.best/api/v2/punch",
+        "https://nekos.best/api/v2/kick",
+        "https://nekos.best/api/v2/fight",
+        "https://api.waifu.pics/sfw/kill",
+        "https://api.waifu.pics/sfw/kick",
+    ),
+    "revenge": ("https://nekos.best/api/v2/punch", "https://nekos.best/api/v2/kick", "https://api.waifu.pics/sfw/kill"),
     "scare": ("https://api.waifu.pics/sfw/scary", "https://nekos.best/api/v2/scare", "https://nekos.best/api/v2/ghost"),
 }
 REACTION_GIF_FALLBACKS = {
     "kiss": ("https://media.tenor.com/-I2QfQvG8fEAAAAC/anime-kiss.gif", "https://media.giphy.com/media/10UVJ0IXjUbPug/giphy.gif"),
     "slap": ("https://media.tenor.com/v1a5sM-9VnoAAAAC/anime-slap.gif", "https://media.giphy.com/media/3XlEk2RxPS1m8/giphy.gif"),
-    # Spank endpoints are inconsistent; keep an anime slap GIF as a visible fallback.
-    "spank": ("https://media.giphy.com/media/3XlEk2RxPS1m8/giphy.gif", "https://media.tenor.com/v1a5sM-9VnoAAAAC/anime-slap.gif"),
-    # Fictional anime action fallback; no realistic or graphic imagery.
-    "kill": ("https://media.giphy.com/media/3XlEk2RxPS1m8/giphy.gif", "https://media.tenor.com/v1a5sM-9VnoAAAAC/anime-slap.gif"),
+    # If dedicated spank categories are down, use an anime slapstick reaction.
+    "spank": ("https://media.tenor.com/v1a5sM-9VnoAAAAC/anime-slap.gif", "https://media.giphy.com/media/3XlEk2RxPS1m8/giphy.gif"),
+    "kill": ("https://media.tenor.com/v1a5sM-9VnoAAAAC/anime-slap.gif", "https://media.giphy.com/media/3XlEk2RxPS1m8/giphy.gif"),
     "revenge": ("https://media.giphy.com/media/3XlEk2RxPS1m8/giphy.gif",),
     "scare": ("https://media.giphy.com/media/3XlEk2RxPS1m8/giphy.gif",),
 }
@@ -29,7 +42,9 @@ REACTION_GIF_FALLBACKS = {
 
 async def random_anime_gif(action):
     def fetch():
-        for endpoint in REACTION_GIF_ENDPOINTS.get(action, ()):
+        endpoints = list(REACTION_GIF_ENDPOINTS.get(action, ()))
+        random.shuffle(endpoints)
+        for endpoint in endpoints:
             try:
                 request = urllib.request.Request(
                     endpoint,
@@ -115,10 +130,10 @@ class ReactionChoiceView(discord.ui.View):
             text = f"🙎 {self.recipient.mention} le ha devuelto el spank a {self.initiator.mention}."
             image_action = "spank"
         elif outcome == "revenge":
-            text = f"💀 {self.recipient.mention}, derrotado en la escena ficticia por {self.initiator.mention}, ha vuelto para vengarse."
+            text = f"💀 {self.recipient.mention} ha vuelto para vengarse de {self.initiator.mention}."
             image_action = "revenge"
         else:
-            text = f"👻 {self.recipient.mention}, derrotado en la escena ficticia por {self.initiator.mention}, ha vuelto como fantasma para asustar a {self.initiator.mention}."
+            text = f"👻 {self.recipient.mention} ha vuelto como fantasma para asustar a {self.initiator.mention}."
             image_action = "scare"
 
         embed = discord.Embed(color=discord.Color.blurple())
@@ -167,7 +182,7 @@ async def handle_reaction_command(message, content):
         "?kiss": ("kiss", "ha besado a", "💋"),
         "?slap": ("slap", "ha abofeteado a", "👋"),
         "?spank": ("spank", "ha nalgueado a", "🙎"),
-        "?kill": ("kill", "ha derrotado en una escena ficticia de anime a", "💀"),
+        "?kill": ("kill", "está luchando contra una persona malvada y está a punto de vencer a", "⚔️"),
     }
     reference = message.reference
     if reference is None or reference.message_id is None:
