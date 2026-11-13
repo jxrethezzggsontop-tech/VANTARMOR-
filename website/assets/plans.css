@@ -1,0 +1,2 @@
+/* Give each navigation destination its own page-like viewport. */
+main>section[hidden]{display:none!important}main>section.active-tab{animation:tab-enter .22s ease-out;min-height:calc(100vh - 155px)}@keyframes tab-enter{from{opacity:.35;transform:translateY(7px)}to{opacity:1;transform:translateY(0)}}#nav a.active{color:#fff;text-shadow:0 0 14px #fff8}#nav a{transition:color .18s ease,text-shadow .18s ease}
