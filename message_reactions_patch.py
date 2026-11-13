@@ -1,45 +1,57 @@
 from pathlib import Path
-import re
 
 REACTION_MARKER = "# VANTARMOR_MESSAGE_REACTIONS_V2"
 REACTION_HELPERS = r'''# VANTARMOR_MESSAGE_REACTIONS_V2
 import json
 import urllib.request
 
+# Each endpoint returns a fresh anime reaction. Try providers in order so an
+# unavailable category/API does not break the command. The kill animation is
+# kept fictional and non-graphic.
 REACTION_GIF_ENDPOINTS = {
-    "kiss": "https://nekos.best/api/v2/kiss",
-    "slap": "https://nekos.best/api/v2/slap",
-    "spank": "https://nekos.best/api/v2/spank",
-    "kill": "https://api.waifu.pics/sfw/kill",
-    "revenge": "https://nekos.best/api/v2/fight",
-    "scare": "https://api.waifu.pics/sfw/scary",
+    "kiss": ("https://nekos.best/api/v2/kiss",),
+    "slap": ("https://nekos.best/api/v2/slap",),
+    "spank": ("https://nekos.best/api/v2/spank",),
+    "kill": ("https://api.waifu.pics/sfw/kill",),
+    "revenge": ("https://nekos.best/api/v2/fight", "https://api.waifu.pics/sfw/kill"),
+    "scare": ("https://api.waifu.pics/sfw/scary", "https://nekos.best/api/v2/scare"),
 }
 REACTION_GIF_FALLBACKS = {
-    "kiss": "https://media.giphy.com/media/10UVJ0IXjUbPug/giphy.gif",
-    "slap": "https://media.giphy.com/media/3XlEk2RxPS1m8/giphy.gif",
-    "spank": "https://media.tenor.com/v1a5sM-9VnoAAAAC/anime-slap.gif",
-    "kill": "https://media.giphy.com/media/3XlEk2RxPS1m8/giphy.gif",
-    "revenge": "https://media.giphy.com/media/3XlEk2RxPS1m8/giphy.gif",
-    "scare": "https://media.giphy.com/media/3XlEk2RxPS1m8/giphy.gif",
+    "kiss": ("https://media.tenor.com/-I2QfQvG8fEAAAAC/anime-kiss.gif", "https://media.giphy.com/media/10UVJ0IXjUbPug/giphy.gif"),
+    "slap": ("https://media.tenor.com/v1a5sM-9VnoAAAAC/anime-slap.gif", "https://media.giphy.com/media/3XlEk2RxPS1m8/giphy.gif"),
+    "spank": ("https://media.tenor.com/v1a5sM-9VnoAAAAC/anime-slap.gif",),
+    "kill": (),
+    "revenge": ("https://media.tenor.com/v1a5sM-9VnoAAAAC/anime-slap.gif",),
+    "scare": ("https://media.tenor.com/v1a5sM-9VnoAAAAC/anime-slap.gif",),
 }
 
 
 async def random_anime_gif(action):
     def fetch():
-        request = urllib.request.Request(
-            REACTION_GIF_ENDPOINTS[action],
-            headers={"User-Agent": "Vantarmor-Commands/1.0", "Accept": "application/json"},
-        )
-        with urllib.request.urlopen(request, timeout=5) as response:
-            data = json.loads(response.read(256 * 1024).decode("utf-8"))
-        results = data.get("results", [])
-        url = results[0].get("url") if results else data.get("url")
-        return url if isinstance(url, str) and url.startswith("https://") else None
+        for endpoint in REACTION_GIF_ENDPOINTS[action]:
+            try:
+                request = urllib.request.Request(
+                    endpoint,
+                    headers={"User-Agent": "Vantarmor-Commands/1.0", "Accept": "application/json"},
+                )
+                with urllib.request.urlopen(request, timeout=5) as response:
+                    data = json.loads(response.read(256 * 1024).decode("utf-8"))
+                results = data.get("results", [])
+                url = results[0].get("url") if results else data.get("url")
+                if isinstance(url, str) and url.startswith("https://"):
+                    return url
+            except (OSError, ValueError, KeyError, TypeError, IndexError):
+                continue
+        return None
 
     try:
-        return await asyncio.to_thread(fetch) or REACTION_GIF_FALLBACKS[action]
+        url = await asyncio.to_thread(fetch)
     except (OSError, ValueError, KeyError, TypeError):
-        return REACTION_GIF_FALLBACKS[action]
+        url = None
+    if url:
+        return url
+    fallbacks = REACTION_GIF_FALLBACKS[action]
+    return random.choice(fallbacks) if fallbacks else None
 
 
 class ReactionChoiceView(discord.ui.View):
@@ -102,18 +114,20 @@ class ReactionChoiceView(discord.ui.View):
             text = f"🙎 {self.recipient.mention} le ha devuelto el spank a {self.initiator.mention}."
             image_action = "spank"
         elif outcome == "revenge":
-            text = f"💀 {self.recipient.mention}, que fue asesinado por {self.initiator.mention}, ha vuelto para vengarse."
+            text = f"💀 {self.recipient.mention}, que fue asesinado en la escena ficticia por {self.initiator.mention}, ha vuelto para vengarse."
             image_action = "revenge"
         else:
-            text = f"👻 {self.recipient.mention}, que fue asesinado por {self.initiator.mention}, ha vuelto como fantasma para asustar a {self.initiator.mention}."
+            text = f"👻 {self.recipient.mention}, que fue derrotado en la escena ficticia por {self.initiator.mention}, ha vuelto como fantasma para asustar a {self.initiator.mention}."
             image_action = "scare"
 
         embed = discord.Embed(color=discord.Color.blurple())
         if image_action:
-            embed.set_image(url=await random_anime_gif(image_action))
+            image = await random_anime_gif(image_action)
+            if image:
+                embed.set_image(url=image)
 
-        # Acknowledge the click, disable the old buttons, and post the outcome
-        # as a separate public message rather than editing the original message.
+        # Keep the original action message; disable its buttons and post the
+        # response as a separate public message.
         await interaction.response.defer()
         try:
             await interaction.message.edit(view=self)
@@ -152,7 +166,7 @@ async def handle_reaction_command(message, content):
         "?kiss": ("kiss", "ha besado a", "💋"),
         "?slap": ("slap", "ha abofeteado a", "👋"),
         "?spank": ("spank", "ha nalgueado a", "🙎"),
-        "?kill": ("kill", "ha asesinado (en una escena ficticia de anime) a", "💀"),
+        "?kill": ("kill", "ha derrotado en una escena ficticia de anime a", "💀"),
     }
     reference = message.reference
     if reference is None or reference.message_id is None:
@@ -173,7 +187,8 @@ async def handle_reaction_command(message, content):
     action, verb, emoji = labels[command]
     image = await random_anime_gif(action)
     embed = discord.Embed(color=discord.Color.blurple())
-    embed.set_image(url=image)
+    if image:
+        embed.set_image(url=image)
     await message.reply(
         content=f"{emoji} {message.author.mention} {verb} {target.mention}.",
         embed=embed,
@@ -189,7 +204,7 @@ def patch_app(app_file: Path) -> None:
     source = app_file.read_text(encoding="utf-8")
     event_marker = "@client.event\nasync def on_message(message):\n"
     if event_marker not in source:
-        raise RuntimeError("No encontré on_message en app.py para instalar ?spank y ?kill.")
+        raise RuntimeError("No encontré on_message en app.py para instalar ?kiss, ?slap, ?spank y ?kill.")
 
     if REACTION_MARKER in source:
         start = source.index(REACTION_MARKER)
@@ -200,7 +215,7 @@ def patch_app(app_file: Path) -> None:
     content_line = "    content = message.content.strip()\n"
     dispatch = "    if await handle_reaction_command(message, content):\n        return\n"
     if content_line not in source:
-        raise RuntimeError("No encontré el contenido de on_message para instalar ?spank y ?kill.")
+        raise RuntimeError("No encontré el contenido de on_message para instalar los comandos de reacción.")
     if dispatch not in source:
         source = source.replace(content_line, content_line + dispatch, 1)
     app_file.write_text(source, encoding="utf-8")
