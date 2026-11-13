@@ -6,7 +6,7 @@ IMPORTS = '''from premium_backup_system import (
     premium_backup_scheduler,
     save_server_snapshot,
 )
-from welcome_system import configure_welcome, disable_welcome
+from welcome_system import configure_welcome, disable_welcome, dispatch_welcome
 from welcome_tiers import configure_free_welcome, dispatch_welcome_tiered
 '''
 
@@ -41,7 +41,7 @@ PREMIUM_WELCOME_COMMAND = '''@tree.command(name="bienvenida-premium", descriptio
     app_commands.Choice(name="Sans negrita: 𝗮𝗯𝗰", value="sansbold"),
     app_commands.Choice(name="Tachada: a̶b̶c̶", value="strike"),
 ])
-@app_commands.choices(fondo=[app_commands.Choice(name="Perfil del usuario", value="profile"), app_commands.Choice(name="URL de imagen", value="url"), app_commands.Choice(name="Fondo del servidor", value="server")])
+@app_commands.choices(fondo=[app_commands.Choice(name="Perfil del usuario", value="profile"), app_commands.Choice(name="URL de imagen", value="url")])
 @app_commands.choices(marco=[app_commands.Choice(name="Resplandor azul", value="glow"), app_commands.Choice(name="Dorado", value="gold"), app_commands.Choice(name="Violeta", value="violet"), app_commands.Choice(name="Menta", value="mint")])
 @app_commands.describe(tipo_letra="Estilo de letra", fondo="Fondo del mensaje", mostrar_numero="Incluir número del miembro", marco="Diseño del marco", canal="Canal donde se enviará la bienvenida", ping="Menciona al usuario al entrar", mensaje="Texto del mensaje", imagen_url="URL HTTPS de la imagen si eliges fondo URL")
 async def bienvenida_premium(interaction: discord.Interaction, tipo_letra: app_commands.Choice[str], fondo: app_commands.Choice[str], mostrar_numero: bool, marco: app_commands.Choice[str], canal: discord.TextChannel, ping: bool, mensaje: str, imagen_url: str = ""):
@@ -58,6 +58,19 @@ async def bienvenida_premium(interaction: discord.Interaction, tipo_letra: app_c
         return
     _, result = await configure_welcome(interaction, tipo_letra.value, fondo.value, imagen_url, mostrar_numero, marco.value, canal, ping, mensaje)
     await interaction.response.send_message(result, ephemeral=True)
+
+
+'''
+
+DISABLE_WELCOME_COMMAND = '''@tree.command(name="disable-bienvenida", description="Desactiva la bienvenida configurada en este servidor", guild=GUILD)
+@app_commands.default_permissions(administrator=True)
+async def disable_bienvenida(interaction: discord.Interaction):
+    guild = interaction.guild
+    if guild is None or not isinstance(interaction.user, discord.Member) or not (interaction.user.guild_permissions.administrator or interaction.user.id == guild.owner_id):
+        await interaction.response.send_message("Solo un administrador o propietario puede desactivar la bienvenida.", ephemeral=True)
+        return
+    removed = disable_welcome(guild.id)
+    await interaction.response.send_message("✅ Bienvenida desactivada." if removed else "No había una bienvenida configurada.", ephemeral=True)
 
 
 '''
@@ -89,18 +102,28 @@ def patch_app_file(app_file: Path):
         if anchor not in source:
             raise RuntimeError("No encontré el punto de importación en app.py.")
         source = source.replace(anchor, anchor + IMPORTS, 1)
+
+    # Remove old generated welcome commands before registering the new Free/Premium pair.
+    import re
+    source = re.sub(
+        r'(?ms)^@tree\.command\(name="(?:bienvenida|bienvenida-premium|disable-bienvenida)"[^\n]*\)\n.*?(?=^@tree\.command|\Z)',
+        "",
+        source,
+    )
     anchor = '@tree.command(name="ping", description="Comprueba si el bot responde", guild=GUILD)\n'
-    for name, block in (("bienvenida", FREE_WELCOME_COMMAND), ("bienvenida-premium", PREMIUM_WELCOME_COMMAND), ("seguridad-copia", BACKUP_COMMAND)):
-        if f'name="{name}"' not in source:
-            if anchor not in source:
-                raise RuntimeError(f"No encontré el lugar para registrar /{name}.")
-            source = source.replace(anchor, block + anchor, 1)
+    if anchor not in source:
+        raise RuntimeError("No encontré el lugar para registrar comandos Premium.")
+    blocks = (FREE_WELCOME_COMMAND, PREMIUM_WELCOME_COMMAND, DISABLE_WELCOME_COMMAND, BACKUP_COMMAND)
+    for block in blocks:
+        source = source.replace(anchor, block + anchor, 1)
+
     join_anchor = '    role = get_role(member.guild, "autorole")\n'
     welcome_dispatch = '    await dispatch_welcome_tiered(member)\n'
     if welcome_dispatch not in source:
         if join_anchor not in source:
             raise RuntimeError("No encontré on_member_join para conectar la bienvenida.")
         source = source.replace(join_anchor, join_anchor + welcome_dispatch, 1)
+
     ready_anchor = '    print(f"Conectado como {client.user}")\n'
     ready_code = '''    if not getattr(client, "premium_backup_views_registered", False):
         for server in client.guilds:
