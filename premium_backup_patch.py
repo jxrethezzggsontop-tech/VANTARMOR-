@@ -6,8 +6,8 @@ IMPORTS = '''from premium_backup_system import (
     premium_backup_scheduler,
     save_server_snapshot,
 )
-from premium_store import is_premium_manager
-from welcome_system import configure_free_welcome, configure_welcome, disable_welcome, dispatch_welcome
+from welcome_system import configure_welcome, disable_welcome
+from welcome_tiers import configure_free_welcome, dispatch_welcome_tiered
 '''
 
 FREE_WELCOME_COMMAND = '''@tree.command(name="bienvenida", description="Configura la bienvenida gratuita del servidor", guild=GUILD)
@@ -20,7 +20,7 @@ async def bienvenida(interaction: discord.Interaction, canal: discord.TextChanne
     if not (interaction.user.guild_permissions.administrator or interaction.user.id == interaction.guild.owner_id):
         await interaction.response.send_message("Solo un administrador o propietario puede configurar la bienvenida.", ephemeral=True)
         return
-    success, result = await configure_free_welcome(interaction, canal, ping, mostrar_numero, mensaje)
+    _, result = await configure_free_welcome(interaction, canal, ping, mostrar_numero, mensaje)
     await interaction.response.send_message(result, ephemeral=True)
 
 
@@ -56,7 +56,7 @@ async def bienvenida_premium(interaction: discord.Interaction, tipo_letra: app_c
     if not is_premium_user(user.id):
         await interaction.response.send_message("Esta función requiere que tu cuenta tenga Premium activo.", ephemeral=True)
         return
-    success, result = await configure_welcome(interaction, tipo_letra.value, fondo.value, imagen_url, mostrar_numero, marco.value, canal, ping, mensaje)
+    _, result = await configure_welcome(interaction, tipo_letra.value, fondo.value, imagen_url, mostrar_numero, marco.value, canal, ping, mensaje)
     await interaction.response.send_message(result, ephemeral=True)
 
 
@@ -84,7 +84,7 @@ async def seguridad_copia(interaction: discord.Interaction):
 
 def patch_app_file(app_file: Path):
     source = app_file.read_text(encoding="utf-8")
-    if "from welcome_system import configure_welcome" not in source:
+    if "from welcome_tiers import configure_free_welcome" not in source:
         anchor = "from discord import app_commands\n"
         if anchor not in source:
             raise RuntimeError("No encontré el punto de importación en app.py.")
@@ -96,7 +96,7 @@ def patch_app_file(app_file: Path):
                 raise RuntimeError(f"No encontré el lugar para registrar /{name}.")
             source = source.replace(anchor, block + anchor, 1)
     join_anchor = '    role = get_role(member.guild, "autorole")\n'
-    welcome_dispatch = '    await dispatch_welcome(member)\n'
+    welcome_dispatch = '    await dispatch_welcome_tiered(member)\n'
     if welcome_dispatch not in source:
         if join_anchor not in source:
             raise RuntimeError("No encontré on_member_join para conectar la bienvenida.")
