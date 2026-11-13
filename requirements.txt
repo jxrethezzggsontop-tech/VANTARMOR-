@@ -1,0 +1,4 @@
+# VANTARMOR_MESSAGE_REACTIONS_V2
+# Existing bot dependencies
+ discord.py>=2.4,<3.0
+Pillow>=10.3,<12
