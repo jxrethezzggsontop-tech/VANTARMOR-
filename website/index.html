@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#050505">
+  <meta name="description" content="Vantarmor Commands: herramientas de moderación y seguridad para comunidades de Discord.">
+  <title>Vantarmor Commands</title>
+  <link rel="stylesheet" href="/assets/style.css">
+  <link rel="stylesheet" href="/assets/plans.css">
+  <script src="/assets/app.js" defer></script>
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="#inicio"><span class="brand-mark">V</span> VANTARMOR <strong>COMMANDS</strong></a>
+    <button id="menu-toggle" class="menu-toggle" aria-label="Abrir menú" aria-expanded="false">☰</button>
+    <nav id="nav"><a href="#inicio">Inicio</a><a href="#funciones">Funciones</a><a href="#planes">Planes</a><a href="#invitar">Invitar bot</a><a href="#cuenta">Cuenta</a></nav>
+    <a class="button button-small" href="/auth/discord">Iniciar sesión</a>
+  </header>
+  <main>
+    <section id="inicio" class="hero">
+      <div><p class="eyebrow">SEGURIDAD PARA TU COMUNIDAD</p><h1>Tu servidor.<br><span>Bajo control.</span></h1><p class="lead">Herramientas de moderación, protección y soporte para que tu comunidad crezca con confianza.</p><div class="actions"><a class="button" href="/auth/discord">Continuar con Discord ↗</a><a class="button secondary" href="#planes">Ver planes</a></div></div>
+      <aside class="hero-card"><div class="badge">VANTARMOR / PANEL</div><div class="shield">V</div><h2>Protección inteligente</h2><p>Moderación, registros y herramientas de comunidad en un solo bot.</p><span class="online"><i></i> Servicio activo</span></aside>
+    </section>
+    <section class="section" id="estado"><p class="eyebrow">EN TIEMPO REAL</p><h2>Estado del servicio</h2><div class="stats"><article><span>Estado</span><strong class="online"><i></i> Operativo</strong></article><article><span>Servidores conectados</span><strong id="server-count">—</strong></article><article><span>Cuentas registradas</span><strong id="web-count">—</strong></article></div></section>
+    <section class="section" id="funciones"><p class="eyebrow">QUÉ INCLUYE</p><h2>Herramientas para tu comunidad</h2><div class="features"><article><h3>Antispam y antilink</h3><p>Protecciones configurables para reducir spam y enlaces no deseados.</p></article><article><h3>Moderación</h3><p>Utilidades para gestionar mensajes y miembros con permisos del servidor.</p></article><article><h3>Tickets</h3><p>Canales privados de soporte con controles para abrir y cerrar solicitudes.</p></article><article><h3>Auditoría</h3><p>Registro de eventos importantes y cambios del servidor.</p></article><article><h3>Bienvenidas</h3><p>Saluda a los nuevos miembros con una tarjeta personalizada.</p></article><article><h3>Funciones Premium</h3><p>Funciones adicionales para cuentas con Premium activo.</p></article></div></section>
+    <section class="section plans-section" id="planes"><p class="eyebrow">ELIGE TU PLAN</p><h2>Planes</h2><p class="plans-intro">Empieza gratis y mejora tu protección cuando quieras.</p><div class="plans-grid">
+      <article class="plan-card"><span class="plan-tag">PLAN 01</span><h3>Free Plan</h3><p class="plan-summary">Puedes usar los comandos gratuitos para tu servidor.</p><ul><li>Media seguridad para tu comunidad</li><li>Diviértete con estos comandos</li><li>Herramientas esenciales para empezar</li></ul><a class="button secondary" href="#funciones">Ver funciones</a></article>
+      <article class="plan-card premium-plan"><span class="plan-tag">PLAN 02 · PREMIUM</span><h3>Premium Plan</h3><p class="plan-summary">Puedes acceder a los comandos Premium.</p><ul><li>Mucha seguridad</li><li>Mejores comandos</li><li>Funciones adicionales para tu servidor</li></ul><div class="prices"><span class="eyebrow">PRICES</span><p>Puedes pagar con gemas de colores. No aceptamos tacos 🌮 ni cangrejos 🦀.</p><p>También puedes pagar con dinero; consulta las opciones y condiciones en nuestro Discord.</p></div><a class="button" href="https://discord.gg/YD7uY3AHz" target="_blank" rel="noopener">Consultar Premium ↗</a></article>
+    </div><p class="plans-note">Las formas de pago y la disponibilidad se confirman con el equipo de Vantarmor en Discord.</p></section>
+    <section class="section invite" id="invitar"><div><p class="eyebrow">LISTO PARA TU COMUNIDAD</p><h2>Invita Vantarmor</h2><p>Inicia sesión con Discord para cargar los servidores donde puedes administrar y añadir el bot.</p></div><div class="invite-action"><label for="guild-select">Servidor</label><select id="guild-select"><option value="">Inicia sesión para ver tus servidores</option></select><a id="invite-button" class="button" href="/auth/discord">Verificar con Discord</a></div></section>
+    <section class="section account" id="cuenta"><p class="eyebrow">TU CUENTA</p><h2>Cuenta de Discord</h2><article id="profile-card" class="profile"><div class="avatar">?</div><div><strong id="profile-name">Inicia sesión para ver tu perfil</strong><p id="profile-status">Vincula tu cuenta de Discord para consultar el estado de tu cuenta.</p></div><a id="profile-login" class="button button-small" href="/auth/discord">Iniciar sesión</a></article><p id="account-actions"></p><a id="admin-link" class="admin-link" href="/admin" hidden>Administración Premium</a></section>
+  </main>
+  <footer><span class="brand">VANTARMOR <strong>COMMANDS</strong></span><a href="https://discord.gg/YD7uY3AHz" target="_blank" rel="noopener">Soporte en Discord ↗</a></footer>
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+</body>
+</html>
