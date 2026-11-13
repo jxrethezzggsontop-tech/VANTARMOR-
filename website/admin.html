@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#050505">
+  <title>Administración Premium · Vantarmor</title>
+  <link rel="stylesheet" href="/assets/style.css">
+  <script src="/assets/admin.js" defer></script>
+</head>
+<body class="admin-page">
+  <header class="topbar admin-topbar"><a class="brand" href="/"><span class="brand-mark">V</span> VANTARMOR <strong>COMMANDS</strong></a><a class="button button-small secondary" href="/">← Página principal</a></header>
+  <main class="admin-shell">
+    <section class="admin-heading"><p class="eyebrow">PANEL PRIVADO</p><h1>Administración Premium</h1><p>Genera keys, concede Premium directamente y administra accesos.</p></section>
+    <section id="login" class="admin-panel" hidden><h2>Inicia sesión</h2><p>Entra con Discord para comprobar tus permisos.</p><a class="button" href="/auth/discord">Iniciar sesión con Discord</a></section>
+    <section id="denied" class="admin-panel" hidden><h2>Acceso restringido</h2><p>Esta cuenta no está autorizada. El ID debe estar en <code>PREMIUM_MANAGER_IDS</code> en el servicio web de Railway.</p></section>
+    <section id="dashboard" hidden>
+      <div class="admin-grid">
+        <section class="admin-panel"><p class="eyebrow">KEYS</p><h2>Generar key Premium</h2><form id="key-form" class="admin-form"><label>Días de Premium<input id="key-days" type="number" min="1" max="3650" value="30" required></label><button class="button" type="submit">Generar key</button></form><div id="key-result" class="key-result" hidden><p>Guarda esta key; solo se mostrará ahora.</p><code id="generated-key"></code><button id="copy-key" class="button secondary" type="button">Copiar key</button></div></section>
+        <section class="admin-panel"><p class="eyebrow">ACCESO DIRECTO</p><h2>Conceder Premium sin key</h2><form id="grant-form" class="admin-form"><label>Buscar usuario<input id="user-search" type="search" placeholder="Nombre, usuario o ID"></label><label>Cuenta registrada<select id="user-select" required></select></label><label>Días (1–3650)<input id="grant-days" type="number" min="1" max="3650" value="30"></label><label class="check-label"><input id="permanent" type="checkbox"> Permanente</label><button class="button" type="submit">Conceder acceso</button></form></section>
+        <section class="admin-panel"><p class="eyebrow">REVOCAR</p><h2>Quitar acceso Premium</h2><p>Revoca por cuenta seleccionada o elimina una key válida. Si la key ya fue canjeada, también revoca el acceso que concedió.</p><form id="revoke-key-form" class="admin-form"><label>Key válida<input id="revoke-key" type="text" maxlength="160" placeholder="VANT-…"></label><button class="button danger" type="submit">Revocar key / acceso</button></form><button id="revoke-user" class="button danger" type="button">Revocar al usuario seleccionado</button></section>
+      </div>
+      <p id="status" class="admin-status" role="status" aria-live="polite"></p>
+      <section class="admin-panel users-panel"><div class="users-heading"><div><p class="eyebrow">CUENTAS</p><h2>Usuarios registrados</h2></div><button id="refresh" class="button secondary" type="button">Actualizar</button></div><div class="table-wrap"><table><thead><tr><th>Nombre</th><th>Usuario Discord</th><th>ID</th><th>Premium</th><th>Vencimiento</th></tr></thead><tbody id="users"></tbody></table></div></section>
+    </section>
+  </main>
+</body>
+</html>
