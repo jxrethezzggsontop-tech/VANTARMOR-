@@ -7,8 +7,8 @@ from premium_key_commands_patch import patch_app_file as remove_premium_key_comm
 from global_commands_patch import patch_app_file as patch_global_commands
 from ticket_image_patch import patch_app_file as patch_ticket_image
 from blue_reaction_embeds_patch import patch_app_file as patch_blue_reaction_embeds
+from premium_security_patch import patch_app_file as patch_premium_security
 from guild_profile_settings import install_guild_profile_settings
-from moderation_prefix_patch import patch_app_file as patch_prefix_moderation
 import web_server
 from web_server import start_website
 
@@ -36,7 +36,7 @@ def main():
     remove_premium_key_commands(APP_FILE)
     patch_ticket_image(APP_FILE)
     patch_blue_reaction_embeds(APP_FILE)
-    patch_prefix_moderation(APP_FILE)
+    patch_premium_security(APP_FILE)
     patch_global_commands(APP_FILE)
     install_guild_profile_settings(web_server.Handler)
     start_website()
