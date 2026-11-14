@@ -9,10 +9,12 @@ import time
 from pathlib import Path
 
 import discord
+from premium_store import is_premium_user as _central_is_premium_user
 
-PREMIUM_USERS_FILE = Path("premium_users.json")
-PREMIUM_KEYS_FILE = Path("premium_keys.json")
-BACKUP_FILE = Path("premium_backups.json")
+DATA_DIR = Path(os.getenv("VANTARMOR_DATA_DIR", "."))
+PREMIUM_USERS_FILE = DATA_DIR / "premium_users.json"
+PREMIUM_KEYS_FILE = DATA_DIR / "premium_keys.json"
+BACKUP_FILE = DATA_DIR / "premium_backups.json"
 BACKUP_INTERVAL = 5 * 60 * 60
 _STORAGE_LOCK = threading.RLock()
 
@@ -28,6 +30,7 @@ def _read_json(path, default):
 def _write_json(path, value):
     temporary = path.with_suffix(path.suffix + ".tmp")
     try:
+        path.parent.mkdir(parents=True, exist_ok=True)
         temporary.write_text(json.dumps(value, ensure_ascii=False, indent=2), encoding="utf-8")
         temporary.replace(path)
         return True
@@ -38,34 +41,36 @@ def _write_json(path, value):
 
 def premium_user_ids():
     users = _read_json(PREMIUM_USERS_FILE, {})
-    current_time = int(time.time())
+    now = int(time.time())
     ids = set()
     for user_id, value in users.items():
         if value is True:
             ids.add(str(user_id))
-        elif isinstance(value, int) and not isinstance(value, bool) and value > current_time:
+        elif isinstance(value, int) and not isinstance(value, bool) and value > now:
             ids.add(str(user_id))
         elif isinstance(value, dict):
-            expires_at = value.get("expires_at")
-            if expires_at is None or (isinstance(expires_at, int) and expires_at > current_time):
+            expiry = value.get("expires_at")
+            if expiry is None:
                 ids.add(str(user_id))
-    ids.update(value.strip() for value in os.getenv("PREMIUM_USER_IDS", "").split(",") if value.strip().isdecimal())
+            else:
+                try:
+                    if int(expiry) > now:
+                        ids.add(str(user_id))
+                except (TypeError, ValueError):
+                    continue
+    ids.update(item.strip() for item in os.getenv("PREMIUM_USER_IDS", "").split(",") if item.strip().isdecimal())
     return ids
 
 
 def is_premium_user(user_id):
-    return str(user_id) in premium_user_ids()
+    # Use exactly the same persistent entitlement store as website key redemption
+    # and account status. The previous implementation read a second, stale JSON.
+    return _central_is_premium_user(user_id)
 
 
 def set_premium_user(user_id, enabled=True):
-    with _STORAGE_LOCK:
-        users = _read_json(PREMIUM_USERS_FILE, {})
-        key = str(user_id)
-        if enabled:
-            users[key] = True
-        else:
-            users.pop(key, None)
-        return _write_json(PREMIUM_USERS_FILE, users)
+    from premium_store import set_premium_user as set_central_premium_user
+    return set_central_premium_user(user_id, enabled)
 
 
 def _key_digest(key):
@@ -73,7 +78,6 @@ def _key_digest(key):
 
 
 def generate_premium_key(days, created_by):
-    """Create a one-use key; only its SHA-256 digest is persisted."""
     if not 1 <= int(days) <= 3650:
         raise ValueError("La duración debe ser de 1 a 3650 días.")
     key = "VANT-" + secrets.token_urlsafe(24)
@@ -87,38 +91,8 @@ def generate_premium_key(days, created_by):
 
 
 def redeem_premium_key(key, user_id):
-    """Redeem a key once. This function can be called by the future website backend."""
-    if not isinstance(key, str) or not key.strip():
-        return False
-    digest = _key_digest(key)
-    with _STORAGE_LOCK:
-        keys = _read_json(PREMIUM_KEYS_FILE, {})
-        record = keys.get(digest)
-        if not isinstance(record, dict) or record.get("redeemed_at"):
-            return False
-        users = _read_json(PREMIUM_USERS_FILE, {})
-        user_key = str(user_id)
-        now = int(time.time())
-        old_value = users.get(user_key)
-        if old_value is True or (isinstance(old_value, dict) and old_value.get("expires_at") is None):
-            # A manually granted, permanent Premium remains permanent.
-            pass
-        else:
-            existing_expiry = old_value if isinstance(old_value, int) and not isinstance(old_value, bool) else 0
-            if isinstance(old_value, dict):
-                existing_expiry = int(old_value.get("expires_at") or 0)
-            users[user_key] = max(now, existing_expiry) + int(record["days"]) * 86400
-        record["redeemed_at"] = now
-        record["redeemed_by"] = user_key
-        keys[digest] = record
-        # Write entitlement first. If that fails, the key remains unredeemed.
-        if not _write_json(PREMIUM_USERS_FILE, users):
-            return False
-        if not _write_json(PREMIUM_KEYS_FILE, keys):
-            # Fail closed: the entitlement is granted, but log for manual reconciliation.
-            print("ALERTA: Premium se activó, pero no se pudo marcar la key como usada.")
-            return False
-    return True
+    from premium_store import redeem_premium_key as redeem_central_premium_key
+    return redeem_central_premium_key(key, user_id)
 
 
 def is_premium_manager(user_id):
@@ -197,14 +171,12 @@ def load_server_snapshot(guild_id):
 
 
 async def restore_server_snapshot(guild, snapshot=None):
-    """Restore missing categories/text/voice channels; never deletes existing channels."""
     snapshot = snapshot or load_server_snapshot(guild.id)
     if not snapshot:
         return False, "No hay una copia guardada para este servidor."
     bot_member = guild.me
     if bot_member is None or not bot_member.guild_permissions.manage_channels:
         return False, "Al bot le falta el permiso Administrar canales."
-
     categories = {category.name: category for category in guild.categories}
     for item in snapshot.get("categories", []):
         if item["name"] in categories:
@@ -216,7 +188,6 @@ async def restore_server_snapshot(guild, snapshot=None):
             )
         except (discord.Forbidden, discord.HTTPException) as error:
             print(f"No se pudo recrear la categoría {item['name']}: {error}")
-
     created = 0
     for item in snapshot.get("channels", []):
         category_name = item.get("category")
@@ -249,7 +220,6 @@ async def restore_server_snapshot(guild, snapshot=None):
             created += 1
         except (discord.Forbidden, discord.HTTPException, TypeError, ValueError) as error:
             print(f"No se pudo recrear el canal {item['name']}: {error}")
-
     return True, f"Restauración completada. Se crearon {created} canal(es); no se borró ningún canal existente."
 
 
@@ -257,10 +227,7 @@ class BackupRestoreView(discord.ui.View):
     def __init__(self, guild_id):
         super().__init__(timeout=None)
         self.guild_id = int(guild_id)
-        button = discord.ui.Button(
-            label="Restaurar copia", style=discord.ButtonStyle.primary,
-            custom_id=f"premium_backup:restore:{self.guild_id}",
-        )
+        button = discord.ui.Button(label="Restaurar copia", style=discord.ButtonStyle.primary, custom_id=f"premium_backup:restore:{self.guild_id}")
         button.callback = self.restore_button
         self.add_item(button)
 

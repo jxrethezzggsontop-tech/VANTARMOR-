@@ -69,8 +69,6 @@ function configureInvite(config) {
 function setupPremiumKeyClaim() {
   const premiumCard = $(".premium-plan");
   if (!premiumCard) return;
-
-  // Keep the existing contact/consult button and point it to the requested Discord.
   const consultButton = premiumCard.querySelector("a.button");
   if (consultButton) {
     consultButton.href = SUPPORT_DISCORD_URL;
@@ -78,13 +76,11 @@ function setupPremiumKeyClaim() {
     consultButton.rel = "noopener noreferrer";
     consultButton.textContent = "Consultar Premium en Discord ↗";
   }
-
   if (premiumCard.querySelector("#premium-key-form")) return;
   const claim = document.createElement("div");
   claim.className = "redeem";
-  claim.innerHTML = '<label for="premium-key-input">¿Ya tienes una key Premium? Reclámala aquí</label><form id="premium-key-form" class="redeem-row"><input id="premium-key-input" type="text" placeholder="VANT-…" autocomplete="off" maxlength="160" required><button class="button button-small" type="submit">Reclamar key</button></form><p id="premium-key-message" role="status" aria-live="polite"></p>';
+  claim.innerHTML = '<label for="premium-key-input">¿Ya tienes una key Premium? Reclámala aquí</label><form id="premium-key-form" class="redeem-row"><input id="premium-key-input" type="text" placeholder="VANT-…" maxlength="160" autocomplete="off" required><button class="button" type="submit">Activar Premium</button></form><p id="premium-key-message" class="form-message" role="status"></p>';
   premiumCard.append(claim);
-
   claim.querySelector("form").addEventListener("submit", async (event) => {
     event.preventDefault();
     const input = $("#premium-key-input");
@@ -114,6 +110,48 @@ function setupPremiumKeyClaim() {
   });
 }
 
+async function setupGuildProfileSettings() {
+  const account = $("#cuenta");
+  if (!account || $("#guild-profile-settings")) return;
+  const section = document.createElement("article");
+  section.id = "guild-profile-settings";
+  section.className = "profile guild-profile-settings";
+  section.innerHTML = '<div><h3>Ajustes visuales por servidor</h3><p>El apodo y avatar solo cambian en el servidor elegido; no modifican el perfil global del bot.</p><form id="guild-profile-form"><label for="profile-guild">Servidor</label><select id="profile-guild" required><option value="">Cargando servidores…</option></select><label for="profile-nickname">Apodo del bot (opcional)</label><input id="profile-nickname" type="text" maxlength="32" placeholder="Apodo solo para este servidor"><label for="profile-avatar-url">Imagen del bot (URL directa HTTPS, opcional)</label><input id="profile-avatar-url" type="url" maxlength="1000" placeholder="https://…/imagen.png"><p class="form-message">Deja la URL vacía para quitar el avatar de servidor. El bot debe estar agregado al servidor.</p><button class="button" type="submit">Guardar en este servidor</button><p id="guild-profile-message" class="form-message" role="status"></p></form></div>';
+  account.append(section);
+  const form = $("#guild-profile-form");
+  const select = $("#profile-guild");
+  const status = $("#guild-profile-message");
+  const result = await api("/api/settings/guilds");
+  if (!result.response.ok) {
+    select.replaceChildren(new Option(result.data.error || "No se pudieron cargar servidores", ""));
+    status.textContent = result.data.error || "No se pudieron cargar servidores.";
+    return;
+  }
+  const guilds = result.data.guilds || [];
+  select.replaceChildren(...(guilds.length ? [new Option("Elige un servidor", ""), ...guilds.map((guild) => new Option(guild.name, guild.id))] : [new Option("No hay servidores elegibles con el bot", "")]));
+  form.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    if (!csrfToken) {
+      status.textContent = "Inicia sesión con Discord para guardar los ajustes.";
+      return;
+    }
+    const button = form.querySelector("button[type='submit']");
+    button.disabled = true;
+    status.textContent = "Guardando ajustes del servidor…";
+    const { response, data } = await api("/api/settings/guild-profile", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "X-CSRF-Token": csrfToken },
+      body: JSON.stringify({
+        guild_id: select.value,
+        nickname: $("#profile-nickname").value,
+        avatar_url: $("#profile-avatar-url").value,
+      }),
+    });
+    button.disabled = false;
+    status.textContent = data.message || data.error || "No se pudieron guardar los cambios.";
+  });
+}
+
 async function boot() {
   activateTab(location.hash.slice(1), { updateHash: false });
   nav?.addEventListener("click", (event) => {
@@ -137,7 +175,6 @@ async function boot() {
   const configResult = await api("/config.json");
   configureInvite(configResult.data || {});
   setupPremiumKeyClaim();
-
   const stats = await api("/api/stats");
   if (stats.response.ok) {
     const servers = $("#server-count");
@@ -168,12 +205,12 @@ async function boot() {
   if (accountActions) accountActions.innerHTML = '<a class="button secondary button-small" href="/auth/logout">Cerrar sesión</a>';
   const adminLink = $("#admin-link");
   if (adminLink && me.data.is_admin) adminLink.hidden = false;
-
   const guilds = await api("/api/guilds");
   const select = $("#guild-select");
   if (select && guilds.response.ok) {
     select.replaceChildren(new Option("Elige un servidor (opcional)", ""), ...guilds.data.guilds.map((guild) => new Option(guild.name, guild.id)));
   }
+  await setupGuildProfileSettings();
 }
 
 boot();
