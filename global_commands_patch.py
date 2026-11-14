@@ -5,12 +5,10 @@ import re
 def patch_app_file(app_file: Path) -> None:
     """Register application commands globally instead of only in one guild.
 
-    Also clear the old guild-scoped registrations left behind by the previous
-    startup configuration before syncing the global command tree.
+    Clear old guild-scoped registrations so stale commands from the previous
+    single-server setup do not linger in Discord.
     """
     source = app_file.read_text(encoding="utf-8")
-
-    # Convert command decorators and group registrations to global commands.
     source = re.sub(
         r'(?m)^(@tree\.command\([^\n]*),\s*guild=GUILD(\)\s*)$',
         r'\1\2',
@@ -22,18 +20,17 @@ def patch_app_file(app_file: Path) -> None:
         source,
     )
 
-    # Clear the legacy guild-specific command set, then publish the complete
-    # tree globally so it is available in every server where the bot is added.
-    old_sync = '''        commands = await tree.sync(guild=GUILD)
-        print(f"Comandos sincronizados: {len(commands)}")'''
-    new_sync = '''        tree.clear_commands(guild=GUILD)
-        await tree.sync(guild=GUILD)
-        commands = await tree.sync()
-        print(f"Comandos globales sincronizados: {len(commands)}")'''
-    if old_sync in source:
-        source = source.replace(old_sync, new_sync, 1)
-    elif 'commands = await tree.sync()' not in source:
-        raise RuntimeError("No encontré la sincronización de comandos de app.py.")
+    # Remove guild-only registration, then publish the same command tree globally.
+    source = re.sub(
+        r'(?m)^\s*commands = await tree\.sync\(guild=GUILD\)\n\s*print\(f"Comandos sincronizados: \{len\(commands\)\}"\)\n?',
+        '        tree.clear_commands(guild=GUILD)\n'
+        '        await tree.sync(guild=GUILD)\n'
+        '        commands = await tree.sync()\n'
+        '        print(f"Comandos globales sincronizados: {len(commands)}")\n',
+        source,
+    )
+    if 'commands = await tree.sync()' not in source:
+        raise RuntimeError("No encontré ni pude actualizar la sincronización de comandos en app.py.")
 
     app_file.write_text(source, encoding="utf-8")
 
