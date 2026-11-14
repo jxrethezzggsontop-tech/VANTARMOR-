@@ -106,16 +106,19 @@ async def handle_reaction_command(message, content):
     command = content.split(maxsplit=1)[0].casefold() if content else ""
 
     if command == "?banana":
-        target = message.author
-        if message.mentions:
-            target = message.mentions[0]
+        target = message.mentions[0] if message.mentions else message.author
         if getattr(target, "bot", False):
             target = message.author
         size = random.randint(1, 40)
-        embed = discord.Embed(color=discord.Color.gold())
+        embed = discord.Embed(
+            description=f"La banana de {target.mention} mide **{size} cm** 🍌",
+            color=discord.Color.green(),
+        )
+        embed.set_author(name=str(target), icon_url=target.display_avatar.url)
         embed.set_image(url=random.choice(BANANA_GIFS))
+        embed.set_footer(text=f"Evaluación de la banana de {target}", icon_url=target.display_avatar.url)
         await message.reply(
-            f"🍌 {target.mention} mide **{size} cm** de banana.",
+            content=f"🍌 {target.mention}",
             embed=embed,
             mention_author=False,
             allowed_mentions=discord.AllowedMentions(users=True, roles=False, everyone=False),
