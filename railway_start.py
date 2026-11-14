@@ -5,6 +5,7 @@ from pathlib import Path
 from message_reactions_patch import patch_app as patch_message_features
 from premium_backup_patch import patch_app_file as patch_premium_features
 from premium_key_commands_patch import patch_app_file as remove_premium_key_commands
+from global_commands_patch import patch_app_file as patch_global_commands
 from web_server import start_website
 
 ROOT = Path(__file__).resolve().parent
@@ -29,6 +30,7 @@ def main():
     patch_message_features(APP_FILE)
     patch_premium_features(APP_FILE)
     remove_premium_key_commands(APP_FILE)
+    patch_global_commands(APP_FILE)
     start_website()
     print("Iniciando Vantarmor Commands...")
     runpy.run_path(str(APP_FILE), run_name="__main__")
