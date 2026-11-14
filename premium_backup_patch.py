@@ -1,4 +1,5 @@
 from pathlib import Path
+import re
 
 IMPORTS = '''from premium_backup_system import (
     BackupRestoreView,
@@ -42,11 +43,10 @@ PREMIUM_WELCOME_COMMAND = '''@tree.command(name="bienvenida-premium", descriptio
     app_commands.Choice(name="Tachada: a̶b̶c̶", value="strike"),
 ])
 @app_commands.choices(fondo=[app_commands.Choice(name="Perfil del usuario", value="profile"), app_commands.Choice(name="URL de imagen", value="url")])
-@app_commands.choices(marco=[app_commands.Choice(name="Resplandor azul", value="glow"), app_commands.Choice(name="Dorado", value="gold"), app_commands.Choice(name="Violeta", value="violet"), app_commands.Choice(name="Menta", value="mint")])
-@app_commands.describe(tipo_letra="Estilo de letra", fondo="Fondo del mensaje", mostrar_numero="Incluir número del miembro", marco="Diseño del marco", canal="Canal donde se enviará la bienvenida", ping="Menciona al usuario al entrar", mensaje="Texto del mensaje", imagen_url="URL HTTPS de la imagen si eliges fondo URL")
-async def bienvenida_premium(interaction: discord.Interaction, tipo_letra: app_commands.Choice[str], fondo: app_commands.Choice[str], mostrar_numero: bool, marco: app_commands.Choice[str], canal: discord.TextChannel, ping: bool, mensaje: str, imagen_url: str = ""):
-    guild = interaction.guild
-    user = interaction.user
+@app_commands.choices(marco=[app_commands.Choice(name="Resplandor azul", value="glow"), app_commands.Choice(name="Dorado", value="gold"), app_commands.Choice(name="Violeta", value="violet"), app_commands.Choice(name="Azul", value="blue")])
+@app_commands.describe(tipo_letra="Estilo de letra", fondo="Fondo del mensaje", mostrar_numero="Incluir número del miembro", marco="Diseño del marco", canal="Canal donde se enviará la bienvenida", ping="Menciona al usuario", mensaje="Texto de bienvenida", imagen_url="URL opcional de imagen")
+async def bienvenida_premium(interaction: discord.Interaction, tipo_letra: app_commands.Choice[str], fondo: app_commands.Choice[str], mostrar_numero: bool, marco: app_commands.Choice[str], canal: discord.TextChannel, ping: bool = True, mensaje: str = "¡Bienvenido {mention}!", imagen_url: Optional[str] = None):
+    guild, user = interaction.guild, interaction.user
     if guild is None or not isinstance(user, discord.Member):
         await interaction.response.send_message("Este comando solo funciona dentro de un servidor.", ephemeral=True)
         return
@@ -103,19 +103,17 @@ def patch_app_file(app_file: Path):
             raise RuntimeError("No encontré el punto de importación en app.py.")
         source = source.replace(anchor, anchor + IMPORTS, 1)
 
-    # Remove old generated welcome commands before registering the new Free/Premium pair.
-    import re
     source = re.sub(
         r'(?ms)^@tree\.command\(name="(?:bienvenida|bienvenida-premium|disable-bienvenida)"[^\n]*\)\n.*?(?=^@tree\.command|\Z)',
         "",
         source,
     )
-    anchor = '@tree.command(name="ping", description="Comprueba si el bot responde", guild=GUILD)\n'
-    if anchor not in source:
-        raise RuntimeError("No encontré el lugar para registrar comandos Premium.")
-    blocks = (FREE_WELCOME_COMMAND, PREMIUM_WELCOME_COMMAND, DISABLE_WELCOME_COMMAND, BACKUP_COMMAND)
-    for block in blocks:
-        source = source.replace(anchor, block + anchor, 1)
+    ping_anchor = '@tree.command(name="ping", description="Comprueba si el bot responde", guild=GUILD)\n'
+    command_anchor = ping_anchor if ping_anchor in source else '@tree.command(name="ping", description="Comprueba si el bot responde")\n'
+    if command_anchor not in source:
+        raise RuntimeError("No encontré el comando ping donde insertar los comandos Premium.")
+    for block in (FREE_WELCOME_COMMAND, PREMIUM_WELCOME_COMMAND, DISABLE_WELCOME_COMMAND, BACKUP_COMMAND):
+        source = source.replace(command_anchor, block + command_anchor, 1)
 
     join_anchor = '    role = get_role(member.guild, "autorole")\n'
     welcome_dispatch = '    await dispatch_welcome_tiered(member)\n'
