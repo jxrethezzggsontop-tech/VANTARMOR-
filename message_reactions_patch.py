@@ -16,6 +16,9 @@ SPANK_GIFS = (
     "https://media.tenor.com/0w1Y4gI0kYgAAAAC/anime-spank.gif",
     "https://media.giphy.com/media/l0MYt5jPR6QX5pnqM/giphy.gif",
 )
+BANANA_GIFS = (
+    "https://media.giphy.com/media/vk7VesvyZEwuY/giphy.gif",
+)
 
 
 async def random_anime_gif(action):
@@ -108,8 +111,11 @@ async def handle_reaction_command(message, content):
         if getattr(target, "bot", False):
             target = message.author
         size = random.randint(1, 40)
+        embed = discord.Embed(color=discord.Color.gold())
+        embed.set_image(url=random.choice(BANANA_GIFS))
         await message.reply(
             f"🍌 {target.mention} mide **{size} cm** de banana.",
+            embed=embed,
             mention_author=False,
             allowed_mentions=discord.AllowedMentions(users=True, roles=False, everyone=False),
         )
@@ -183,7 +189,6 @@ def patch_app(app_file: Path) -> None:
     if event_marker not in source:
         raise RuntimeError("No encontré on_message en app.py para instalar ?kiss y ?slap.")
 
-    # Replace any older generated reaction helpers and install the current version.
     if REACTION_MARKER in source:
         start = source.index(REACTION_MARKER)
         end = source.index(event_marker, start)
