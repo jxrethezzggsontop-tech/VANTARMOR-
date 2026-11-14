@@ -17,6 +17,7 @@ SPANK_GIFS = (
     "https://media.giphy.com/media/l0MYt5jPR6QX5pnqM/giphy.gif",
 )
 BANANA_GIFS = (
+    "https://media.tenor.com/nBEH0FvRR0UAAAAM/banana-anime.gif",
     "https://media.giphy.com/media/vk7VesvyZEwuY/giphy.gif",
 )
 
