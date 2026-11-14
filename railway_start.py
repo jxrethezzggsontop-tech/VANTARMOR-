@@ -1,5 +1,4 @@
 import runpy
-import threading
 from pathlib import Path
 
 from message_reactions_patch import patch_app as patch_message_features
